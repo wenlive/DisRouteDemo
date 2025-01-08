@@ -6,7 +6,6 @@
 #include <algorithm>
 #include "range.h"
 #include "hash_key.h"
-#include "cost_calculator.h"
 
 struct RoutingResult {
     int nodeId;
@@ -27,29 +26,27 @@ public:
 
 class BasicRouterStrategy : public RouterStrategy {
 public:
-    int route(const std::vector<RangeKey>& queryRanges,
-             const std::unordered_map<HashKey, int>& routingTable,
-             const std::vector<std::unordered_map<std::string, std::vector<Range>>>& nodeDataRanges,
-             int nodeCount) override;
+    RoutingResult route(
+        const std::vector<RangeKey>& queryRanges,
+        const std::unordered_map<HashKey, int>& routingTable,
+        const std::vector<std::unordered_map<std::string, std::vector<Range>>>& nodeDataRanges,
+        int nodeCount) override;
 };
 
 class AdvancedRouterStrategy : public RouterStrategy {
 private:
     struct NodeStats {
-        int dataCount;
         double loadFactor;
-        NodeStats() : dataCount(0), loadFactor(0.0) {}
+        NodeStats() : loadFactor(0.0) {}
     };
     std::vector<NodeStats> nodeStats;
 
-    double calculateMatchScore(const RangeKey& range, int nodeId,
-                             const std::unordered_map<HashKey, int>& routingTable);
-
 public:
-    int route(const std::vector<RangeKey>& queryRanges,
-             const std::unordered_map<HashKey, int>& routingTable,
-             const std::vector<std::unordered_map<std::string, std::vector<Range>>>& nodeDataRanges,
-             int nodeCount) override;
+    RoutingResult route(
+        const std::vector<RangeKey>& queryRanges,
+        const std::unordered_map<HashKey, int>& routingTable,
+        const std::vector<std::unordered_map<std::string, std::vector<Range>>>& nodeDataRanges,
+        int nodeCount) override;
 };
 
 #endif // ROUTER_STRATEGY_H 

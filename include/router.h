@@ -32,7 +32,8 @@ private:
         nodeDataRanges[targetNodeId][writeOp.tableName].push_back(writeOp.range);
         
         // 更新路由表
-        HashKey key(writeOp.tableName, "id", writeOp.range);
+        std::vector<ColumnRange> ranges = {ColumnRange(writeOp.columnName, writeOp.range)};
+        HashKey key(writeOp.tableName, ranges);
         routingTable[key] = targetNodeId;
     }
 

@@ -3,6 +3,8 @@
 #include <string>
 #include <random>
 #include <chrono>
+#include <set>
+#include <algorithm>
 #include "range.h"
 #include "hash_key.h"
 #include "router.h"
@@ -55,15 +57,20 @@ std::vector<std::vector<RangeKey>> generateTestQueries(int queryCount) {
 }
 
 // 添加数据分布分析函数
-void printDataDistribution(const std::vector<std::unordered_map<std::string, std::vector<Range>>>& nodeDataRanges, 
-                         const std::string& title) {
+void printDataDistribution(
+    const std::vector<std::unordered_map<std::string, std::vector<Range>>>& nodeDataRanges, 
+    const std::string& title) {
     std::cout << "\n=== " << title << " ===" << std::endl;
     
     for (size_t nodeId = 0; nodeId < nodeDataRanges.size(); ++nodeId) {
         std::cout << "\nNode " << nodeId << ":" << std::endl;
         const auto& nodeData = nodeDataRanges[nodeId];
         
-        for (const auto& [tableName, ranges] : nodeData) {
+        // 替换结构化绑定
+        for (const auto& tableEntry : nodeData) {
+            const std::string& tableName = tableEntry.first;
+            const std::vector<Range>& ranges = tableEntry.second;
+            
             std::cout << "  Table '" << tableName << "':" << std::endl;
             for (const auto& range : ranges) {
                 std::cout << "    Range [" << range.lower << "-" << range.upper << "]"
@@ -79,25 +86,32 @@ void analyzeDataDistributionChanges(
     
     std::cout << "\n=== Data Distribution Changes Analysis ===" << std::endl;
     
-    // 分析每个节点的变化
     for (size_t nodeId = 0; nodeId < initial.size(); ++nodeId) {
         std::cout << "\nNode " << nodeId << " changes:" << std::endl;
         const auto& initialNode = initial[nodeId];
         const auto& currentNode = current[nodeId];
         
-        // 分析每个表的变化
+        // 收集所有表名
         std::set<std::string> allTables;
-        for (const auto& [table, _] : initialNode) allTables.insert(table);
-        for (const auto& [table, _] : currentNode) allTables.insert(table);
+        for (const auto& tableEntry : initialNode) {
+            allTables.insert(tableEntry.first);
+        }
+        for (const auto& tableEntry : currentNode) {
+            allTables.insert(tableEntry.first);
+        }
         
+        // 分析每个表的变化
         for (const auto& tableName : allTables) {
             std::cout << "  Table '" << tableName << "':" << std::endl;
             
             // 获取初始和当前的范围
-            const auto& initialRanges = initialNode.count(tableName) ? 
-                                      initialNode.at(tableName) : std::vector<Range>();
-            const auto& currentRanges = currentNode.count(tableName) ? 
-                                      currentNode.at(tableName) : std::vector<Range>();
+            const auto initialIt = initialNode.find(tableName);
+            const auto currentIt = currentNode.find(tableName);
+            
+            const std::vector<Range>& initialRanges = 
+                (initialIt != initialNode.end()) ? initialIt->second : std::vector<Range>();
+            const std::vector<Range>& currentRanges = 
+                (currentIt != currentNode.end()) ? currentIt->second : std::vector<Range>();
             
             // 计算数据量变化
             int initialTotal = 0;
@@ -127,10 +141,8 @@ void runBasicTest(QueryRouter& router, const std::vector<std::vector<RangeKey>>&
     // 打印初始数据分布
     printDataDistribution(initialDistribution, "Initial Data Distribution");
     
-    std::cout << "\n=== Basic Router Test with " << testQueries.size() << " queries ===" << std::endl;
-    
     // 统计信息
-    std::vector<int> nodeSelectionCount(4, 0);  // 假设4个节点
+    std::vector<int> nodeSelectionCount(4, 0);
     int totalCost = 0;
     int writeOps = 0;
     int crossNodeQueries = 0;
@@ -138,7 +150,6 @@ void runBasicTest(QueryRouter& router, const std::vector<std::vector<RangeKey>>&
     for (size_t i = 0; i < testQueries.size(); ++i) {
         const auto& query = testQueries[i];
         
-        // 每10个查询打印一次详细信息
         bool printDetail = (i % 10 == 0);
         if (printDetail) {
             std::cout << "\nQuery " << i + 1 << ":" << std::endl;
@@ -149,20 +160,21 @@ void runBasicTest(QueryRouter& router, const std::vector<std::vector<RangeKey>>&
             }
         }
         
-        // 获取路由决策
         RoutingResult result = router.route(query);
         
-        // 更新统计信息
         nodeSelectionCount[result.nodeId]++;
         totalCost += result.estimatedCost;
         
-        // 检查是否包含写操作
-        bool hasWrite = std::any_of(query.begin(), query.end(), 
-                                  [](const RangeKey& rk) { return rk.isWrite; });
+        bool hasWrite = false;
+        for (const auto& range : query) {
+            if (range.isWrite) {
+                hasWrite = true;
+                break;
+            }
+        }
         if (hasWrite) writeOps++;
         
-        // 检查是否是跨节点查询
-        if (result.estimatedCost > (query.size() * LOCAL_READ_COST)) {
+        if (result.estimatedCost > (query.size() * CostCalculator::LOCAL_READ_COST)) {
             crossNodeQueries++;
         }
         
