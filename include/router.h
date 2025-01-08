@@ -20,7 +20,8 @@ class QueryRouter {
 private:
     std::unordered_map<HashKey, int> routingTable;
     const int nodeCount;
-    std::vector<std::unordered_map<std::string, std::vector<Range>>> nodeDataRanges;
+    std::vector<std::unordered_map<std::string, 
+        std::unordered_map<std::string, std::vector<Range>>>> nodeDataRanges;
     std::unique_ptr<RouterStrategy> strategy;
     RoutingMode currentMode;
 
@@ -29,7 +30,8 @@ private:
         if (!writeOp.isWrite) return;
         
         // 更新目标节点的数据范围
-        nodeDataRanges[targetNodeId][writeOp.tableName].push_back(writeOp.range);
+        nodeDataRanges[targetNodeId][writeOp.tableName][writeOp.columnName]
+            .push_back(writeOp.range);
         
         // 更新路由表
         std::vector<ColumnRange> ranges = {ColumnRange(writeOp.columnName, writeOp.range)};
@@ -43,7 +45,10 @@ public:
     RoutingMode getRoutingMode() const;
     RoutingResult route(const std::vector<RangeKey>& queryRanges);
     void initializeDataDistribution(const std::vector<TableDistribution>& distribution);
-    const std::vector<std::unordered_map<std::string, std::vector<Range>>>& getNodeDataRanges() const;
+    const std::vector<std::unordered_map<std::string, 
+        std::unordered_map<std::string, std::vector<Range>>>>& getNodeDataRanges() const {
+        return nodeDataRanges;
+    }
 };
 
 #endif // ROUTER_H 

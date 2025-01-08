@@ -174,7 +174,7 @@ void runBasicTest(QueryRouter& router, const std::vector<std::vector<RangeKey>>&
         }
         if (hasWrite) writeOps++;
         
-        if (result.estimatedCost > (query.size() * CostCalculator::LOCAL_READ_COST)) {
+        if (result.estimatedCost > (static_cast<int>(query.size()) * CostCalculator::LOCAL_READ_COST)) {
             crossNodeQueries++;
         }
         

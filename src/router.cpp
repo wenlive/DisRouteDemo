@@ -1,7 +1,9 @@
 #include "router.h"
 
-QueryRouter::QueryRouter(int nodes, RoutingMode mode) 
-    : nodeCount(nodes), currentMode(mode), nodeDataRanges(nodes) {
+QueryRouter::QueryRouter(int nodes, RoutingMode mode)
+    : nodeCount(nodes)
+    , nodeDataRanges(nodes)
+    , currentMode(mode) {
     setRoutingMode(mode);
 }
 
@@ -17,29 +19,37 @@ void QueryRouter::setRoutingMode(RoutingMode mode) {
     }
 }
 
-RoutingMode QueryRouter::getRoutingMode() const {
-    return currentMode;
+RoutingResult QueryRouter::route(const std::vector<RangeKey>& queryRanges) {
+    RoutingResult result = strategy->route(queryRanges, routingTable, nodeDataRanges, nodeCount);
+    
+    // 处理写操作导致的数据迁移
+    for (const auto& range : queryRanges) {
+        if (range.isWrite) {
+            handleWriteOperation(range, result.nodeId);
+        }
+    }
+    
+    return result;
 }
 
-int QueryRouter::route(const std::vector<RangeKey>& queryRanges) {
-    return strategy->route(queryRanges, routingTable, nodeDataRanges, nodeCount);
-}
-
-void QueryRouter::initializeDataDistribution(
-    const std::vector<std::pair<std::string, std::vector<Range>>>& distribution) {
+void QueryRouter::initializeDataDistribution(const std::vector<TableDistribution>& distribution) {
     for (int nodeId = 0; nodeId < nodeCount; nodeId++) {
         for (const auto& tableDist : distribution) {
-            const std::string& tableName = tableDist.first;
-            for (const Range& range : tableDist.second) {
-                HashKey key(tableName, "id", range);
-                routingTable[key] = nodeId;
-                nodeDataRanges[nodeId][tableName].push_back(range);
+            const std::string& tableName = tableDist.tableName;
+            
+            // 为每个列的范围组合创建路由表项
+            for (const auto& colRanges : tableDist.columnRanges) {
+                const std::string& colName = colRanges.first;
+                for (const Range& range : colRanges.second) {
+                    // 更新路由表
+                    std::vector<ColumnRange> columnRanges = {ColumnRange(colName, range)};
+                    HashKey key(tableName, columnRanges);
+                    routingTable[key] = nodeId;
+                    
+                    // 更新节点数据范围
+                    nodeDataRanges[nodeId][tableName][colName].push_back(range);
+                }
             }
         }
     }
 }
-
-const std::vector<std::unordered_map<std::string, std::vector<Range>>>& 
-QueryRouter::getNodeDataRanges() const {
-    return nodeDataRanges;
-} 
