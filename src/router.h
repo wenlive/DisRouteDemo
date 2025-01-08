@@ -1,45 +1,67 @@
+#ifndef ROUTER_H
+#define ROUTER_H
+
+#include <memory>
+#include <vector>
+#include <unordered_map>
+#include "router_strategy.h"
+
+enum class RoutingMode {
+    BASIC,
+    ADVANCED
+};
+
 class QueryRouter {
 private:
-    unordered_map<HashKey, int> routingTable;  // 路由表，映射到nodeId
+    std::unordered_map<HashKey, int> routingTable;
     const int nodeCount;
-    
-    // 模拟的数据分布情况
-    vector<unordered_map<string, vector<Range>>> nodeDataRanges;
+    std::vector<std::unordered_map<std::string, std::vector<Range>>> nodeDataRanges;
+    std::unique_ptr<RouterStrategy> strategy;
+    RoutingMode currentMode;
 
 public:
-    QueryRouter(int nodes) : nodeCount(nodes) {
-        nodeDataRanges.resize(nodes);
+    QueryRouter(int nodes, RoutingMode mode = RoutingMode::BASIC) 
+        : nodeCount(nodes), currentMode(mode), nodeDataRanges(nodes) {
+        setRoutingMode(mode);
     }
-    
-    // 初始化数据分布
-    void initializeDataDistribution(const vector<pair<string, vector<Range>>>& distribution) {
-        // 根据预设的亲和性分布初始化路由表
+
+    void setRoutingMode(RoutingMode mode) {
+        currentMode = mode;
+        switch (mode) {
+            case RoutingMode::BASIC:
+                strategy.reset(new BasicRouterStrategy());
+                break;
+            case RoutingMode::ADVANCED:
+                strategy.reset(new AdvancedRouterStrategy());
+                break;
+        }
+    }
+
+    RoutingMode getRoutingMode() const {
+        return currentMode;
+    }
+
+    int route(const std::vector<RangeKey>& queryRanges) {
+        return strategy->route(queryRanges, routingTable, nodeDataRanges, nodeCount);
+    }
+
+    void initializeDataDistribution(const std::vector<std::pair<std::string, std::vector<Range>>>& distribution) {
         for (int nodeId = 0; nodeId < nodeCount; nodeId++) {
-            for (const auto& [table, ranges] : distribution) {
-                for (const Range& range : ranges) {
-                    HashKey key{table, "id", range};  // 简化版本只考虑id列
+            for (const auto& tableDist : distribution) {
+                const std::string& tableName = tableDist.first;
+                for (const Range& range : tableDist.second) {
+                    HashKey key(tableName, "id", range);
                     routingTable[key] = nodeId;
+                    nodeDataRanges[nodeId][tableName].push_back(range);
                 }
             }
         }
     }
-    
-    // 路由决策
-    int route(const vector<RangeKey>& queryRanges) {
-        vector<int> votes(nodeCount, 0);
-        
-        for (const auto& range : queryRanges) {
-            // 找到匹配的路由表项
-            for (const auto& [key, nodeId] : routingTable) {
-                if (key.tableName == range.tableName && 
-                    key.predicate.overlaps(range.range)) {
-                    // 简单的投票机制
-                    votes[nodeId] += range.isWrite ? 2 : 1;  // 写操作权重更大
-                }
-            }
-        }
-        
-        // 返回得票最多的节点
-        return max_element(votes.begin(), votes.end()) - votes.begin();
+
+    const std::vector<std::unordered_map<std::string, std::vector<Range>>>& getNodeDataRanges() const {
+        return nodeDataRanges;
     }
+};
+
+#endif // ROUTER_H 
 }; 

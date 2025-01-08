@@ -1,6 +1,13 @@
+#ifndef RANGE_H
+#define RANGE_H
+
+#include <string>
+
 struct Range {
     int lower;
     int upper;
+    
+    Range(int l, int u) : lower(l), upper(u) {}
     
     bool contains(int value) const {
         return value >= lower && value <= upper;
@@ -12,11 +19,13 @@ struct Range {
 };
 
 struct RangeKey {
-    string tableName;
-    string columnName;
+    std::string tableName;
+    std::string columnName;
     Range range;
-    bool isWrite;  // 是否为写操作
+    bool isWrite;
     
-    RangeKey(string table, string column, Range r, bool write) 
+    RangeKey(std::string table, std::string column, Range r, bool write) 
         : tableName(table), columnName(column), range(r), isWrite(write) {}
-}; 
+};
+
+#endif // RANGE_H 

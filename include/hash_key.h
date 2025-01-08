@@ -1,7 +1,16 @@
+#ifndef HASH_KEY_H
+#define HASH_KEY_H
+
+#include <string>
+#include "range.h"
+
 struct HashKey {
-    string tableName;
-    string columnName;
+    std::string tableName;
+    std::string columnName;
     Range predicate;
+    
+    HashKey(std::string table, std::string column, Range pred)
+        : tableName(table), columnName(column), predicate(pred) {}
     
     bool operator==(const HashKey& other) const {
         return tableName == other.tableName && 
@@ -11,7 +20,6 @@ struct HashKey {
     }
 };
 
-// 为了使用HashKey作为map的key
 namespace std {
     template<>
     struct hash<HashKey> {
@@ -22,4 +30,6 @@ namespace std {
                    hash<int>()(k.predicate.upper);
         }
     };
-} 
+}
+
+#endif // HASH_KEY_H 
