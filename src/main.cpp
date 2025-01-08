@@ -58,31 +58,40 @@ std::vector<std::vector<RangeKey>> generateTestQueries(int queryCount) {
 
 // 添加数据分布分析函数
 void printDataDistribution(
-    const std::vector<std::unordered_map<std::string, std::vector<Range>>>& nodeDataRanges, 
+    const std::vector<std::unordered_map<std::string, 
+        std::unordered_map<std::string, std::vector<Range>>>>& nodeDataRanges,
     const std::string& title) {
+    
     std::cout << "\n=== " << title << " ===" << std::endl;
     
     for (size_t nodeId = 0; nodeId < nodeDataRanges.size(); ++nodeId) {
         std::cout << "\nNode " << nodeId << ":" << std::endl;
         const auto& nodeData = nodeDataRanges[nodeId];
         
-        // 替换结构化绑定
         for (const auto& tableEntry : nodeData) {
             const std::string& tableName = tableEntry.first;
-            const std::vector<Range>& ranges = tableEntry.second;
+            const auto& columnData = tableEntry.second;
             
             std::cout << "  Table '" << tableName << "':" << std::endl;
-            for (const auto& range : ranges) {
-                std::cout << "    Range [" << range.lower << "-" << range.upper << "]"
-                         << " (size: " << (range.upper - range.lower + 1) << ")" << std::endl;
+            for (const auto& colEntry : columnData) {
+                const std::string& columnName = colEntry.first;
+                const auto& ranges = colEntry.second;
+                
+                std::cout << "    Column '" << columnName << "':" << std::endl;
+                for (const auto& range : ranges) {
+                    std::cout << "      Range [" << range.lower << "-" << range.upper << "]"
+                             << " (size: " << (range.upper - range.lower + 1) << ")" << std::endl;
+                }
             }
         }
     }
 }
 
 void analyzeDataDistributionChanges(
-    const std::vector<std::unordered_map<std::string, std::vector<Range>>>& initial,
-    const std::vector<std::unordered_map<std::string, std::vector<Range>>>& current) {
+    const std::vector<std::unordered_map<std::string, 
+        std::unordered_map<std::string, std::vector<Range>>>>& initial,
+    const std::vector<std::unordered_map<std::string, 
+        std::unordered_map<std::string, std::vector<Range>>>>& current) {
     
     std::cout << "\n=== Data Distribution Changes Analysis ===" << std::endl;
     
@@ -91,7 +100,6 @@ void analyzeDataDistributionChanges(
         const auto& initialNode = initial[nodeId];
         const auto& currentNode = current[nodeId];
         
-        // 收集所有表名
         std::set<std::string> allTables;
         for (const auto& tableEntry : initialNode) {
             allTables.insert(tableEntry.first);
@@ -100,36 +108,54 @@ void analyzeDataDistributionChanges(
             allTables.insert(tableEntry.first);
         }
         
-        // 分析每个表的变化
         for (const auto& tableName : allTables) {
             std::cout << "  Table '" << tableName << "':" << std::endl;
             
-            // 获取初始和当前的范围
-            const auto initialIt = initialNode.find(tableName);
-            const auto currentIt = currentNode.find(tableName);
+            const auto& initialTable = initialNode.find(tableName);
+            const auto& currentTable = currentNode.find(tableName);
             
-            const std::vector<Range>& initialRanges = 
-                (initialIt != initialNode.end()) ? initialIt->second : std::vector<Range>();
-            const std::vector<Range>& currentRanges = 
-                (currentIt != currentNode.end()) ? currentIt->second : std::vector<Range>();
-            
-            // 计算数据量变化
-            int initialTotal = 0;
-            for (const auto& range : initialRanges) {
-                initialTotal += range.upper - range.lower + 1;
+            std::set<std::string> allColumns;
+            if (initialTable != initialNode.end()) {
+                for (const auto& colEntry : initialTable->second) {
+                    allColumns.insert(colEntry.first);
+                }
+            }
+            if (currentTable != currentNode.end()) {
+                for (const auto& colEntry : currentTable->second) {
+                    allColumns.insert(colEntry.first);
+                }
             }
             
-            int currentTotal = 0;
-            for (const auto& range : currentRanges) {
-                currentTotal += range.upper - range.lower + 1;
+            for (const auto& columnName : allColumns) {
+                std::cout << "    Column '" << columnName << "':" << std::endl;
+                
+                int initialTotal = 0;
+                if (initialTable != initialNode.end()) {
+                    auto colIt = initialTable->second.find(columnName);
+                    if (colIt != initialTable->second.end()) {
+                        for (const auto& range : colIt->second) {
+                            initialTotal += range.upper - range.lower + 1;
+                        }
+                    }
+                }
+                
+                int currentTotal = 0;
+                if (currentTable != currentNode.end()) {
+                    auto colIt = currentTable->second.find(columnName);
+                    if (colIt != currentTable->second.end()) {
+                        for (const auto& range : colIt->second) {
+                            currentTotal += range.upper - range.lower + 1;
+                        }
+                    }
+                }
+                
+                int change = currentTotal - initialTotal;
+                std::cout << "      Initial data size: " << initialTotal << std::endl;
+                std::cout << "      Current data size: " << currentTotal << std::endl;
+                std::cout << "      Change: " << (change >= 0 ? "+" : "") << change 
+                          << " (" << (change * 100.0 / (initialTotal ? initialTotal : 1)) 
+                          << "%)" << std::endl;
             }
-            
-            int change = currentTotal - initialTotal;
-            std::cout << "    Initial data size: " << initialTotal << std::endl;
-            std::cout << "    Current data size: " << currentTotal << std::endl;
-            std::cout << "    Change: " << (change >= 0 ? "+" : "") << change 
-                      << " (" << (change * 100.0 / (initialTotal ? initialTotal : 1)) 
-                      << "%)" << std::endl;
         }
     }
 }

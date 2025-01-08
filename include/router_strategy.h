@@ -6,6 +6,7 @@
 #include <algorithm>
 #include "range.h"
 #include "hash_key.h"
+#include "cost_calculator.h"
 
 struct RoutingResult {
     int nodeId;
@@ -20,7 +21,8 @@ public:
     virtual RoutingResult route(
         const std::vector<RangeKey>& queryRanges,
         const std::unordered_map<HashKey, int>& routingTable,
-        const std::vector<std::unordered_map<std::string, std::vector<Range>>>& nodeDataRanges,
+        const std::vector<std::unordered_map<std::string, 
+            std::unordered_map<std::string, std::vector<Range>>>>& nodeDataRanges,
         int nodeCount) = 0;
 };
 
@@ -29,7 +31,8 @@ public:
     RoutingResult route(
         const std::vector<RangeKey>& queryRanges,
         const std::unordered_map<HashKey, int>& routingTable,
-        const std::vector<std::unordered_map<std::string, std::vector<Range>>>& nodeDataRanges,
+        const std::vector<std::unordered_map<std::string, 
+            std::unordered_map<std::string, std::vector<Range>>>>& nodeDataRanges,
         int nodeCount) override;
 };
 
@@ -45,7 +48,8 @@ public:
     RoutingResult route(
         const std::vector<RangeKey>& queryRanges,
         const std::unordered_map<HashKey, int>& routingTable,
-        const std::vector<std::unordered_map<std::string, std::vector<Range>>>& nodeDataRanges,
+        const std::vector<std::unordered_map<std::string, 
+            std::unordered_map<std::string, std::vector<Range>>>>& nodeDataRanges,
         int nodeCount) override;
 };
 
