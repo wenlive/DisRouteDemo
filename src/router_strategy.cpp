@@ -19,6 +19,21 @@ int BasicRouterStrategy::route(
     return std::max_element(votes.begin(), votes.end()) - votes.begin();
 }
 
+double AdvancedRouterStrategy::calculateMatchScore(
+    const RangeKey& range, 
+    int nodeId,
+    const std::unordered_map<HashKey, int>& routingTable) {
+    double score = 0.0;
+    for (const auto& pair : routingTable) {
+        if (pair.second == nodeId && pair.first.tableName == range.tableName) {
+            if (pair.first.predicate.overlaps(range.range)) {
+                score += range.isWrite ? 2.0 : 1.0;
+            }
+        }
+    }
+    return score;
+}
+
 int AdvancedRouterStrategy::route(
     const std::vector<RangeKey>& queryRanges,
     const std::unordered_map<HashKey, int>& routingTable,
