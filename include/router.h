@@ -11,6 +11,11 @@ enum class RoutingMode {
     ADVANCED
 };
 
+struct TableDistribution {
+    std::string tableName;
+    std::unordered_map<std::string, std::vector<Range>> columnRanges;  // column -> ranges
+};
+
 class QueryRouter {
 private:
     std::unordered_map<HashKey, int> routingTable;
@@ -19,12 +24,24 @@ private:
     std::unique_ptr<RouterStrategy> strategy;
     RoutingMode currentMode;
 
+    // 处理写操作导致的数据迁移
+    void handleWriteOperation(const RangeKey& writeOp, int targetNodeId) {
+        if (!writeOp.isWrite) return;
+        
+        // 更新目标节点的数据范围
+        nodeDataRanges[targetNodeId][writeOp.tableName].push_back(writeOp.range);
+        
+        // 更新路由表
+        HashKey key(writeOp.tableName, "id", writeOp.range);
+        routingTable[key] = targetNodeId;
+    }
+
 public:
     QueryRouter(int nodes, RoutingMode mode = RoutingMode::BASIC);
     void setRoutingMode(RoutingMode mode);
     RoutingMode getRoutingMode() const;
-    int route(const std::vector<RangeKey>& queryRanges);
-    void initializeDataDistribution(const std::vector<std::pair<std::string, std::vector<Range>>>& distribution);
+    RoutingResult route(const std::vector<RangeKey>& queryRanges);
+    void initializeDataDistribution(const std::vector<TableDistribution>& distribution);
     const std::vector<std::unordered_map<std::string, std::vector<Range>>>& getNodeDataRanges() const;
 };
 

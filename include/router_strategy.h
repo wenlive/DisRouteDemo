@@ -6,14 +6,23 @@
 #include <algorithm>
 #include "range.h"
 #include "hash_key.h"
+#include "cost_calculator.h"
+
+struct RoutingResult {
+    int nodeId;
+    int estimatedCost;
+    
+    RoutingResult(int node, int cost) : nodeId(node), estimatedCost(cost) {}
+};
 
 class RouterStrategy {
 public:
     virtual ~RouterStrategy() = default;
-    virtual int route(const std::vector<RangeKey>& queryRanges,
-                     const std::unordered_map<HashKey, int>& routingTable,
-                     const std::vector<std::unordered_map<std::string, std::vector<Range>>>& nodeDataRanges,
-                     int nodeCount) = 0;
+    virtual RoutingResult route(
+        const std::vector<RangeKey>& queryRanges,
+        const std::unordered_map<HashKey, int>& routingTable,
+        const std::vector<std::unordered_map<std::string, std::vector<Range>>>& nodeDataRanges,
+        int nodeCount) = 0;
 };
 
 class BasicRouterStrategy : public RouterStrategy {
