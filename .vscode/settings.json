@@ -3,6 +3,10 @@
         "--background-index",
         "--compile-commands-dir=${workspaceFolder}",
         "--completion-style=detailed",
-        "--header-insertion=never"
+        "--header-insertion=never",
+        "-I${workspaceFolder}/include"
+    ],
+    "C_Cpp.default.includePath": [
+        "${workspaceFolder}/include"
     ]
 } 

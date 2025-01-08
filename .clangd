@@ -1,0 +1,2 @@
+CompileFlags:
+  Add: [-I/absolute/path/to/your/project/include] 

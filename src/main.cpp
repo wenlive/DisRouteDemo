@@ -1,5 +1,8 @@
 #include <iostream>
 #include <vector>
+#include <string>
+#include "range.h"
+#include "hash_key.h"
 #include "router.h"
 
 void runTest(QueryRouter& router, const std::vector<std::vector<RangeKey>>& testQueries) {
